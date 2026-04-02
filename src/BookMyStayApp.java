@@ -4,229 +4,179 @@ public class BookMyStayApp {
 
     public static void main(String[] args) {
 
-        System.out.println("==================================");
-        System.out.println("   Hotel Booking System v8.0      ");
-        System.out.println("==================================");
+        System.out.println("========================================");
+        System.out.println(" Hotel Booking System v9.0              ");
+        System.out.println(" Error Handling & Validation            ");
+        System.out.println("========================================");
 
-        // Assume reservation IDs already exist (from previous use cases)
-        String reservationId1 = "RES-101";
-        String reservationId2 = "RES-102";
+        // Initialize room inventory
+        RoomInventory inventory = new RoomInventory();
 
-        // -----------------------------------------
-        // Use Case 7: Add-On Services
-        // -----------------------------------------
-        AddOnServiceManager manager = new AddOnServiceManager();
+        // Add available rooms
+        inventory.addRoomType("Standard", 2);
+        inventory.addRoomType("Deluxe", 1);
+        inventory.addRoomType("Suite", 1);
 
-        Service breakfast = new Service("Breakfast", 20);
-        Service spa = new Service("Spa", 50);
-        Service wifi = new Service("WiFi", 10);
+        // Display initial inventory
+        inventory.displayInventory();
 
-        manager.addService(reservationId1, breakfast);
-        manager.addService(reservationId1, wifi);
-        manager.addService(reservationId2, spa);
+        // Booking service
+        BookingService bookingService = new BookingService(inventory);
 
-        manager.displayServices(reservationId1);
-        manager.displayServices(reservationId2);
-
-        // -----------------------------------------
-        // Use Case 8: Booking History & Reporting
-        // -----------------------------------------
-        Reservation booking1 = new Reservation(reservationId1, "Divita Kapoor", "Deluxe Room", 2, 300);
-        Reservation booking2 = new Reservation(reservationId2, "Aarav Sharma", "Suite Room", 3, 600);
-
-        BookingHistory bookingHistory = new BookingHistory();
-
-        bookingHistory.addReservation(booking1);
-        bookingHistory.addReservation(booking2);
-
-        bookingHistory.displayBookingHistory();
-
-        BookingReportService reportService = new BookingReportService();
-        reportService.generateSummaryReport(bookingHistory);
-    }
-}
-
-/**
- * Service class (Add-On)
- */
-class Service {
-
-    private String name;
-    private double cost;
-
-    public Service(String name, double cost) {
-        this.name = name;
-        this.cost = cost;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public double getCost() {
-        return cost;
-    }
-}
-
-/**
- * Add-On Service Manager
- * Maps reservation → list of services
- */
-class AddOnServiceManager {
-
-    private Map<String, List<Service>> reservationServices;
-
-    public AddOnServiceManager() {
-        reservationServices = new HashMap<>();
-    }
-
-    public void addService(String reservationId, Service service) {
-
-        reservationServices
-                .computeIfAbsent(reservationId, k -> new ArrayList<>())
-                .add(service);
-
-        System.out.println("Added " + service.getName()
-                + " to Reservation " + reservationId);
-    }
-
-    public void displayServices(String reservationId) {
-
-        System.out.println("\nServices for Reservation: " + reservationId);
-
-        List<Service> services = reservationServices.get(reservationId);
-
-        if (services == null || services.isEmpty()) {
-            System.out.println("No services selected.");
-            return;
+        // --------------------------------------------
+        // Test Case 1: Valid booking
+        // --------------------------------------------
+        System.out.println("\n--- Booking Attempt 1 ---");
+        try {
+            bookingService.bookRoom("Divita Kapoor", "Standard");
+        } catch (InvalidBookingException e) {
+            System.out.println("Booking Failed: " + e.getMessage());
         }
 
-        double totalCost = 0;
-
-        for (Service s : services) {
-            System.out.println("- " + s.getName() + " ($" + s.getCost() + ")");
-            totalCost += s.getCost();
+        // --------------------------------------------
+        // Test Case 2: Invalid room type (case-sensitive)
+        // --------------------------------------------
+        System.out.println("\n--- Booking Attempt 2 ---");
+        try {
+            bookingService.bookRoom("Aarav Sharma", "standard"); // invalid (case-sensitive)
+        } catch (InvalidBookingException e) {
+            System.out.println("Booking Failed: " + e.getMessage());
         }
 
-        System.out.println("Total Add-On Cost: $" + totalCost);
+        // --------------------------------------------
+        // Test Case 3: Invalid room type
+        // --------------------------------------------
+        System.out.println("\n--- Booking Attempt 3 ---");
+        try {
+            bookingService.bookRoom("Meera Singh", "Premium"); // invalid room
+        } catch (InvalidBookingException e) {
+            System.out.println("Booking Failed: " + e.getMessage());
+        }
+
+        // --------------------------------------------
+        // Test Case 4: Booking until room unavailable
+        // --------------------------------------------
+        System.out.println("\n--- Booking Attempt 4 ---");
+        try {
+            bookingService.bookRoom("Rohan Das", "Deluxe");
+            bookingService.bookRoom("Priya Nair", "Deluxe"); // should fail
+        } catch (InvalidBookingException e) {
+            System.out.println("Booking Failed: " + e.getMessage());
+        }
+
+        // --------------------------------------------
+        // Final inventory check
+        // --------------------------------------------
+        System.out.println("\n========================================");
+        System.out.println(" Final Room Inventory Status            ");
+        System.out.println("========================================");
+        inventory.displayInventory();
+
+        System.out.println("\nSystem continued running safely after errors.");
     }
 }
 
 /**
- * Reservation class
+ * Custom Exception for invalid booking scenarios
  */
-class Reservation {
+class InvalidBookingException extends Exception {
 
-    private String reservationId;
-    private String guestName;
-    private String roomType;
-    private int numberOfNights;
-    private double totalAmount;
+    public InvalidBookingException(String message) {
+        super(message);
+    }
+}
 
-    public Reservation(String reservationId, String guestName, String roomType,
-                       int numberOfNights, double totalAmount) {
-        this.reservationId = reservationId;
-        this.guestName = guestName;
-        this.roomType = roomType;
-        this.numberOfNights = numberOfNights;
-        this.totalAmount = totalAmount;
+/**
+ * Room Inventory class
+ * Manages room availability
+ */
+class RoomInventory {
+
+    private Map<String, Integer> roomAvailability;
+
+    public RoomInventory() {
+        roomAvailability = new HashMap<>();
     }
 
-    public String getReservationId() {
-        return reservationId;
+    // Add room type and count
+    public void addRoomType(String roomType, int count) {
+        roomAvailability.put(roomType, count);
     }
 
-    public String getGuestName() {
-        return guestName;
+    // Check if room type exists
+    public boolean isValidRoomType(String roomType) {
+        return roomAvailability.containsKey(roomType);
     }
 
-    public String getRoomType() {
-        return roomType;
+    // Check availability
+    public boolean isRoomAvailable(String roomType) {
+        return roomAvailability.get(roomType) > 0;
     }
 
-    public int getNumberOfNights() {
-        return numberOfNights;
+    // Reduce room count safely
+    public void reserveRoom(String roomType) throws InvalidBookingException {
+
+        if (!isValidRoomType(roomType)) {
+            throw new InvalidBookingException("Invalid room type: " + roomType);
+        }
+
+        int available = roomAvailability.get(roomType);
+
+        if (available <= 0) {
+            throw new InvalidBookingException("No rooms available for type: " + roomType);
+        }
+
+        roomAvailability.put(roomType, available - 1);
     }
 
-    public double getTotalAmount() {
-        return totalAmount;
+    // Display inventory
+    public void displayInventory() {
+        System.out.println("\nCurrent Room Inventory:");
+        for (Map.Entry<String, Integer> entry : roomAvailability.entrySet()) {
+            System.out.println(entry.getKey() + " Rooms Available: " + entry.getValue());
+        }
+    }
+}
+
+/**
+ * Booking Service class
+ * Validates and processes bookings
+ */
+class BookingService {
+
+    private RoomInventory inventory;
+    private int bookingCounter = 101;
+
+    public BookingService(RoomInventory inventory) {
+        this.inventory = inventory;
     }
 
-    public void displayReservation() {
-        System.out.println("----------------------------------");
-        System.out.println("Reservation ID : " + reservationId);
+    public void bookRoom(String guestName, String roomType) throws InvalidBookingException {
+
+        // Validate guest name
+        if (guestName == null || guestName.trim().isEmpty()) {
+            throw new InvalidBookingException("Guest name cannot be empty.");
+        }
+
+        // Validate room type
+        if (roomType == null || roomType.trim().isEmpty()) {
+            throw new InvalidBookingException("Room type cannot be empty.");
+        }
+
+        if (!inventory.isValidRoomType(roomType)) {
+            throw new InvalidBookingException(
+                    "Room type '" + roomType + "' is invalid. Please enter a valid room type exactly as defined."
+            );
+        }
+
+        // Reserve room safely
+        inventory.reserveRoom(roomType);
+
+        // Generate booking ID
+        String bookingId = "RES-" + bookingCounter++;
+        System.out.println("Booking Successful!");
+        System.out.println("Reservation ID : " + bookingId);
         System.out.println("Guest Name     : " + guestName);
         System.out.println("Room Type      : " + roomType);
-        System.out.println("Nights         : " + numberOfNights);
-        System.out.println("Total Amount   : $" + totalAmount);
-    }
-}
-
-/**
- * Booking History class
- */
-class BookingHistory {
-
-    private List<Reservation> confirmedBookings;
-
-    public BookingHistory() {
-        confirmedBookings = new ArrayList<>();
-    }
-
-    public void addReservation(Reservation reservation) {
-        confirmedBookings.add(reservation);
-        System.out.println("Booking stored in history: " + reservation.getReservationId());
-    }
-
-    public List<Reservation> getAllReservations() {
-        return confirmedBookings;
-    }
-
-    public void displayBookingHistory() {
-        System.out.println("\n==================================");
-        System.out.println("       BOOKING HISTORY            ");
-        System.out.println("==================================");
-
-        if (confirmedBookings.isEmpty()) {
-            System.out.println("No confirmed bookings found.");
-            return;
-        }
-
-        for (Reservation reservation : confirmedBookings) {
-            reservation.displayReservation();
-        }
-    }
-}
-
-/**
- * Booking Report Service
- */
-class BookingReportService {
-
-    public void generateSummaryReport(BookingHistory history) {
-
-        List<Reservation> bookings = history.getAllReservations();
-
-        System.out.println("\n==================================");
-        System.out.println("      BOOKING SUMMARY REPORT      ");
-        System.out.println("==================================");
-
-        if (bookings.isEmpty()) {
-            System.out.println("No booking data available for report.");
-            return;
-        }
-
-        int totalBookings = bookings.size();
-        double totalRevenue = 0;
-        int totalNights = 0;
-
-        for (Reservation reservation : bookings) {
-            totalRevenue += reservation.getTotalAmount();
-            totalNights += reservation.getNumberOfNights();
-        }
-
-        System.out.println("Total Confirmed Bookings : " + totalBookings);
-        System.out.println("Total Nights Booked      : " + totalNights);
-        System.out.println("Total Revenue Generated  : $" + totalRevenue);
     }
 }
